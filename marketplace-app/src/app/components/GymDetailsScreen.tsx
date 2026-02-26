@@ -1,24 +1,39 @@
-import { ArrowLeft, Star, MapPin, Clock, Dumbbell, Users, Bike, Droplets } from "lucide-react";
+import { ArrowLeft, Star, MapPin, Clock, Dumbbell, Users, Bike, Droplets, TrendingUp, Zap, ChevronRight, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { ImageCarousel } from "./ui/ImageCarousel";
 import { useEffect, useState } from "react";
-import { fetchGymById } from "../lib/api";
+import { fetchGymById, fetchGymReviews } from "../lib/api";
 import { LoadingSpinner } from "./ui/LoadingSpinner";
 
 export function GymDetailsScreen({ gymId, onBack, onBookNow }: { gymId: string | null; onBack: () => void; onBookNow: (plan: string) => void }) {
   const [gym, setGym] = useState<any>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingReviews, setLoadingReviews] = useState(true);
 
   useEffect(() => {
     if (gymId) {
+      setLoading(true);
+      setLoadingReviews(true);
       fetchGymById(gymId)
         .then(data => {
           setGym(data);
+          localStorage.setItem('last_selected_gym', JSON.stringify(data));
           setLoading(false);
         })
         .catch(err => {
           console.error(err);
           setLoading(false);
+        });
+
+      fetchGymReviews(gymId)
+        .then(data => {
+          setReviews(data);
+          setLoadingReviews(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setLoadingReviews(false);
         });
     } else {
       setLoading(false);
@@ -33,14 +48,30 @@ export function GymDetailsScreen({ gymId, onBack, onBookNow }: { gymId: string |
     );
   }
 
-  // Map facilities icons if they come from backend (backend currently just has strings or is empty)
-  // For now, we'll use a default set or map them
-  const facilities = [
-    { icon: Dumbbell, label: "Weights" },
-    { icon: Users, label: "Trainers" },
-    { icon: Bike, label: "Cardio" },
-    { icon: Droplets, label: "Shower" },
-  ];
+  // Icons map for facilities
+  const iconMap: Record<string, any> = {
+    "Weights": Dumbbell,
+    "Trainers": Users,
+    "Cardio": Bike,
+    "Shower": Droplets,
+    "Yoga": Zap,
+    "Pool": Droplets,
+    "Parking": MapPin,
+    "WiFi": Zap,
+  };
+
+  // Use dynamic facilities from gym data or fallback to defaults
+  const gymFacilities = gym.facilities && gym.facilities.length > 0
+    ? gym.facilities.map((f: string) => ({
+      icon: iconMap[f] || Dumbbell,
+      label: f
+    }))
+    : [
+      { icon: Dumbbell, label: "Weights" },
+      { icon: Users, label: "Trainers" },
+      { icon: Bike, label: "Cardio" },
+      { icon: Droplets, label: "Shower" },
+    ];
 
   return (
     <motion.div
@@ -108,7 +139,7 @@ export function GymDetailsScreen({ gymId, onBack, onBookNow }: { gymId: string |
                 </div>
                 <div>
                   <div className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Location</div>
-                  <div className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors underline decoration-dotted decoration-gray-400 underline-offset-2">
+                  <div className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors underline decoration-dotted decoration-gray-400 underline-offset-2">
                     {gym.location}
                   </div>
                 </div>
@@ -148,7 +179,7 @@ export function GymDetailsScreen({ gymId, onBack, onBookNow }: { gymId: string |
           >
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Facilities</h3>
             <div className="grid grid-cols-4 gap-3">
-              {facilities.map((facility: any, index: number) => (
+              {gymFacilities.map((facility: any, index: number) => (
                 <div
                   key={index}
                   className="flex flex-col items-center gap-3 p-4 bg-gray-50 rounded-2xl transition-all group"
@@ -160,7 +191,83 @@ export function GymDetailsScreen({ gymId, onBack, onBookNow }: { gymId: string |
                 </div>
               ))}
             </div>
+
+            {gym.specializations && gym.specializations.length > 0 && (
+              <div className="mt-8 pt-8 border-t border-gray-100">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Specialized Disciplines</h3>
+                <div className="flex flex-wrap gap-2">
+                  {gym.specializations.map((spec: string, index: number) => (
+                    <span key={index} className="px-4 py-2 bg-gray-100 text-gray-500 rounded-xl text-[9px] font-black uppercase tracking-widest border border-gray-200">
+                      {spec}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
+
+          {/* Member Intelligence (Reviews) */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mb-8"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Member Intelligence</h3>
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
+                <Star className="w-2.5 h-2.5 fill-black" />
+                <span className="text-[10px] font-black italic">{gym.rating}</span>
+              </div>
+            </div>
+
+            {loadingReviews ? (
+              <div className="flex justify-center p-8">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+              </div>
+            ) : reviews.length === 0 ? (
+              <div className="p-10 bg-gray-50 rounded-[32px] border-2 border-dashed border-gray-100 text-center">
+                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">No reports filed yet for this hub.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((review, idx) => (
+                  <div key={review._id || idx} className="p-6 bg-white rounded-[24px] border border-gray-100 shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-black text-primary rounded-lg flex items-center justify-center font-black text-[10px] italic uppercase tracking-tighter">
+                          {review.userId?.name.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="text-[11px] font-black text-gray-900 uppercase italic tracking-tighter leading-tight">{review.userId?.name}</h4>
+                          <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest">{new Date(review.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-0.5">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} size={8} className={`${i < review.rating ? 'fill-black text-black' : 'text-gray-100'}`} />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs font-bold text-gray-600 leading-relaxed italic border-l-2 border-gray-50 pl-3">
+                      "{review.comment}"
+                    </p>
+                    {review.reply && (
+                      <div className="mt-4 pt-4 border-t border-gray-50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="bg-black text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded">Owner Response</span>
+                          <span className="text-[9px] font-bold text-gray-300 uppercase">{new Date(review.repliedAt || Date.now()).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-800 italic">"{review.reply}"</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+
+
         </div>
       </div>
 

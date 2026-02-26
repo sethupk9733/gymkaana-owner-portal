@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { LoadingSpinner } from "./components/ui/LoadingSpinner";
 import { AnimatePresence } from "motion/react";
 
@@ -32,15 +32,44 @@ type Screen =
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
-  const [selectedPlan, setSelectedPlan] = useState("Monthly");
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [selectedGymId, setSelectedGymId] = useState<string | null>(null);
+  const [selectedStartDate, setSelectedStartDate] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [latestBooking, setLatestBooking] = useState<any>(null);
 
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [pendingScreen, setPendingScreen] = useState<Screen | null>(null);
 
-  const handleLoginSuccess = () => {
+  const loadProfile = async () => {
+    try {
+      const { fetchProfile, checkSession } = await import("./lib/api");
+      const user = await checkSession();
+      if (user) {
+        const profile = await fetchProfile();
+        setUserProfile(profile);
+        setIsAuthenticated(true);
+      }
+    } catch (err) {
+      console.error("Profile fetch failed:", err);
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  if (loading) return <LoadingSpinner />;
+
+  const handleLoginSuccess = async () => {
     setIsAuthenticated(true);
+    await loadProfile();
+
     if (pendingScreen) {
       setCurrentScreen(pendingScreen);
       setPendingScreen(null);
@@ -61,8 +90,8 @@ export default function App() {
   const renderScreen = () => {
     switch (currentScreen) {
       case "splash":
-        // Go straight to home instead of login
-        return <SplashScreen onComplete={() => setCurrentScreen("home")} />;
+        // Go straight to login screen instead of home
+        return <SplashScreen onComplete={() => setCurrentScreen("login")} />;
 
       case "login":
         return (
@@ -80,6 +109,7 @@ export default function App() {
               setCurrentScreen("details");
             }}
             onProfile={() => handleProtectedAction("profile")}
+            onExplore={() => setCurrentScreen("listing")}
           />
         );
 
@@ -119,7 +149,10 @@ export default function App() {
         return (
           <CheckoutScreen
             onBack={() => setCurrentScreen("membership_plans")}
-            onProceedToPayment={() => setCurrentScreen("payment")}
+            onProceedToPayment={(date) => {
+              setSelectedStartDate(date);
+              setCurrentScreen("payment");
+            }}
             selectedPlan={selectedPlan}
           />
         );
@@ -127,8 +160,14 @@ export default function App() {
       case "payment":
         return (
           <PaymentScreen
+            gymId={selectedGymId}
+            plan={selectedPlan}
+            startDate={selectedStartDate}
             onBack={() => setCurrentScreen("checkout")}
-            onPaymentSuccess={() => setCurrentScreen("success")}
+            onPaymentSuccess={(booking) => {
+              setLatestBooking(booking);
+              setCurrentScreen("success");
+            }}
           />
         );
 
@@ -137,6 +176,8 @@ export default function App() {
           <SuccessScreen
             onGoHome={() => setCurrentScreen("home")}
             onViewDashboard={() => handleProtectedAction("dashboard")}
+            userPhoto={userProfile?.profileImage}
+            booking={latestBooking}
           />
         );
 
@@ -145,6 +186,7 @@ export default function App() {
           <DashboardScreen
             onBack={() => setCurrentScreen("home")}
             onHome={() => setCurrentScreen("home")}
+            profile={userProfile}
           />
         );
 
@@ -154,9 +196,14 @@ export default function App() {
             onBack={() => setCurrentScreen("home")}
             onLogout={() => {
               setIsAuthenticated(false);
+              setUserProfile(null);
+              localStorage.removeItem('gymkaana_token');
+              localStorage.removeItem('gymkaana_user');
               setCurrentScreen("login");
             }}
             onViewBookings={() => setCurrentScreen("bookings")}
+            userPhoto={userProfile?.profileImage}
+            onPhotoCapture={loadProfile}
           />
         );
 
@@ -168,8 +215,8 @@ export default function App() {
         );
 
       default:
-        // Default to home if splash
-        return <SplashScreen onComplete={() => setCurrentScreen("home")} />;
+        // Default to login if splash
+        return <SplashScreen onComplete={() => setCurrentScreen("login")} />;
     }
   };
 

@@ -28,8 +28,23 @@ export function VenueCard({ gym, onClick }: VenueCardProps) {
         >
             <div className="h-56 relative overflow-hidden">
                 <ImageCarousel images={displayImages} />
-                <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-md text-white px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">
-                    {displayPrice}
+                <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                    {Number((gym as any).maxBaseDiscount || 0) > 0 ? (
+                        <div className="bg-gradient-to-r from-primary/100 to-indigo-600 text-white px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">
+                            Up to {Math.round(Number((gym as any).maxBaseDiscount))}% OFF
+                        </div>
+                    ) : (
+                        <div className="bg-black/80 backdrop-blur-md text-white px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">
+                            Multiple Plans
+                        </div>
+                    )}
+
+                    {Number((gym as any).bestDiscount || 0) > 0 && (
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-1">
+                            <span className="text-lg leading-none">🎉</span>
+                            <span>Extra {Math.round(Number((gym as any).bestDiscount))}% OFF</span>
+                        </div>
+                    )}
                 </div>
             </div>
             <div className="p-5">
@@ -40,10 +55,25 @@ export function VenueCard({ gym, onClick }: VenueCardProps) {
                     <h4 className="font-black text-gray-900 truncate text-lg tracking-tight italic uppercase">{gym.name}</h4>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-5 px-0.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-2 px-0.5">
                     <MapPin className="w-4 h-4 text-primary" />
                     <span className="truncate">{displayLocation}</span>
                 </div>
+
+                {(gym as any).specializations && (gym as any).specializations.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-5 px-0.5">
+                        {(gym as any).specializations.slice(0, 2).map((spec: string) => (
+                            <span key={spec} className="px-2 py-0.5 bg-gray-100 text-[8px] font-black uppercase tracking-widest text-gray-500 rounded-md border border-gray-200">
+                                {spec}
+                            </span>
+                        ))}
+                        {(gym as any).specializations.length > 2 && (
+                            <span className="px-2 py-0.5 bg-gray-100 text-[8px] font-black uppercase tracking-widest text-gray-500 rounded-md border border-gray-200">
+                                +{(gym as any).specializations.length - 2}
+                            </span>
+                        )}
+                    </div>
+                )}
 
                 <div className="flex justify-between items-center bg-gray-50/50 p-3 rounded-2xl border border-gray-50">
                     <div className="flex items-center gap-2">

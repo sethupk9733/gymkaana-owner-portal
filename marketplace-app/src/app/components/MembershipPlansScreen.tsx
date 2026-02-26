@@ -1,16 +1,26 @@
 import { ArrowLeft, CheckCircle2, Zap } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { fetchPlansByGymId } from "../lib/api";
+import { fetchPlansByGymId, fetchGymById } from "../lib/api";
 import { LoadingSpinner } from "./ui/LoadingSpinner";
 
 interface Plan {
     id: string;
     name: string;
     price: string;
+    planBasePrice: string;
+    dayPassTotal: string;
+    showDayPassStrike: boolean;
+    showPlanBaseStrike: boolean;
+    dayPassPrice: number;
     duration: string;
     features: string[];
     popular?: boolean;
+    savingsLabel?: string | null;
+    extraDiscountLabel?: string | null;
+    promoDiscount: number;
+    stage1Discount: number;
+    stage2Discount: number;
 }
 
 export function MembershipPlansScreen({
@@ -21,7 +31,7 @@ export function MembershipPlansScreen({
 }: {
     gymId: string | null;
     onBack: () => void;
-    onSelectPlan: (planName: string) => void;
+    onSelectPlan: (plan: any) => void;
     venueType?: "gym" | "other"
 }) {
     const [plans, setPlans] = useState<Plan[]>([]);
@@ -29,16 +39,51 @@ export function MembershipPlansScreen({
 
     useEffect(() => {
         if (gymId) {
-            fetchPlansByGymId(gymId)
-                .then(data => {
-                    const mappedPlans = data.map((plan: any) => ({
-                        id: plan._id,
-                        name: plan.name,
-                        price: `₹${plan.price}`,
-                        duration: `/${plan.duration}`,
-                        features: plan.features || [],
-                        popular: plan.name.toLowerCase().includes('pro') || plan.name.toLowerCase().includes('popular')
-                    }));
+            Promise.all([
+                fetchPlansByGymId(gymId),
+                fetchGymById(gymId)
+            ])
+                .then(([plansData, gymData]) => {
+                    const mappedPlans = plansData.map((plan: any) => {
+                        const planBasePrice = plan.price;
+                        const promoDiscount = plan.discount || 0;
+                        const finalPriceValue = Math.round(planBasePrice * (1 - promoDiscount / 100));
+                        const dayPassTotal = (gymData.baseDayPassPrice || 0) * (plan.sessions || 1);
+
+                        let savingsLabel = null;
+                        let extraDiscountLabel = null;
+
+                        if (dayPassTotal > 0 && plan.sessions > 1) {
+                            const totalSavingPercent = Math.round((1 - (finalPriceValue / dayPassTotal)) * 100);
+                            if (totalSavingPercent > 0) {
+                                savingsLabel = `${totalSavingPercent}% TOTAL SAVINGS`;
+                            }
+                        }
+
+                        if (promoDiscount > 0) {
+                            extraDiscountLabel = `${promoDiscount}% EXTRA DISCOUNT`;
+                        }
+
+                        return {
+                            id: plan._id,
+                            name: plan.name,
+                            price: `₹${finalPriceValue.toLocaleString()}`,
+                            planBasePrice: `₹${planBasePrice.toLocaleString()}`,
+                            dayPassTotal: `₹${dayPassTotal.toLocaleString()}`,
+                            showDayPassStrike: dayPassTotal > planBasePrice,
+                            showPlanBaseStrike: promoDiscount > 0,
+                            dayPassPrice: gymData.baseDayPassPrice,
+                            duration: `/${plan.duration}`,
+                            sessions: plan.sessions,
+                            features: plan.features || [],
+                            popular: plan.name.toLowerCase().includes('pro') || plan.name.toLowerCase().includes('popular'),
+                            savingsLabel,
+                            extraDiscountLabel,
+                            promoDiscount,
+                            stage1Discount: dayPassTotal > 0 ? Math.round((1 - (planBasePrice / dayPassTotal)) * 100) : 0,
+                            stage2Discount: promoDiscount
+                        };
+                    });
                     setPlans(mappedPlans);
                     setLoading(false);
                 })
@@ -85,7 +130,10 @@ export function MembershipPlansScreen({
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: index * 0.1 }}
-                            onClick={() => onSelectPlan(plan.name)}
+                            onClick={() => {
+                                localStorage.setItem('last_selected_plan', JSON.stringify(plan));
+                                onSelectPlan(plan);
+                            }}
                             className={`relative border rounded-[32px] p-6 transition-all hover:shadow-xl cursor-pointer group ${plan.popular
                                 ? 'bg-gray-900 border-gray-900 text-white shadow-2xl scale-[1.02]'
                                 : 'bg-white border-gray-100 text-gray-900'
@@ -98,16 +146,53 @@ export function MembershipPlansScreen({
                                 </div>
                             )}
 
+                            <div className="absolute top-3 right-8 flex flex-col items-end gap-1.5">
+                                {plan.extraDiscountLabel && (
+                                    <div className="bg-primary text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
+                                        <Zap className="w-3 h-3 fill-current" /> {plan.extraDiscountLabel}
+                                    </div>
+                                )}
+                                {plan.savingsLabel && (
+                                    <div className="bg-emerald-500 text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg shadow-lg">
+                                        {plan.savingsLabel}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="flex justify-between items-start mb-6">
                                 <div>
                                     <h4 className={`font-black text-xl italic uppercase tracking-tight mb-1 ${plan.popular ? 'text-white' : 'text-gray-900'}`}>
                                         {plan.name}
                                     </h4>
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-3xl font-black italic tracking-tighter">{plan.price}</span>
-                                        <span className={`text-[10px] uppercase font-bold tracking-widest ${plan.popular ? 'text-white/40' : 'text-gray-400'}`}>
-                                            {plan.duration}
-                                        </span>
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-3xl font-black italic tracking-tighter">{plan.price}</span>
+                                            <span className={`text-[10px] uppercase font-bold tracking-widest ${plan.popular ? 'text-white/40' : 'text-gray-400'}`}>
+                                                {plan.duration}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            {plan.showDayPassStrike && plan.stage1Discount > 0 && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest line-through ${plan.popular ? 'text-white/30' : 'text-gray-400'}`}>
+                                                        {plan.dayPassTotal}
+                                                    </span>
+                                                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">
+                                                        {plan.stage1Discount}% OFF
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {plan.showPlanBaseStrike && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest line-through ${plan.popular ? 'text-white/30' : 'text-gray-400'}`}>
+                                                        {plan.planBasePrice}
+                                                    </span>
+                                                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+                                                        {plan.stage2Discount}% EXTRA DISCOUNT
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                                 <motion.div

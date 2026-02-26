@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   ArrowLeft,
   User,
@@ -16,29 +16,109 @@ import {
   FileText,
   MessageSquare,
   AlertCircle,
-  Building
+  Building,
+  Camera,
+  ShieldCheck as ShieldVerified,
+  Edit2,
+  Save,
+  Loader2,
+  Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ActivePassCard } from "./ui/ActivePassCard";
 import { QRModal } from "./ui/QRModal";
-import { activePass } from "../data/mockData";
+import { SupportChat } from "./SupportChat";
+import { fetchMyBookings, fetchProfile, updateProfile as updateProfileApi } from "../lib/api";
+
 
 export function ProfileScreen({
   onBack,
   onLogout,
-  onViewBookings
+  onViewBookings,
+  userPhoto,
+  onPhotoCapture
 }: {
   onBack: () => void;
   onLogout: () => void;
   onViewBookings: () => void;
+  userPhoto: string | null;
+  onPhotoCapture: (photo: string) => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showQR, setShowQR] = useState(false);
-  const [currentView, setCurrentView] = useState<'main' | 'payments' | 'privacy' | 'notifications' | 'help' | 'settings' | 'membership'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'payments' | 'privacy' | 'notifications' | 'help' | 'settings' | 'membership' | 'edit'>('main');
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Edit state
+  const [editData, setEditData] = useState({
+    name: '',
+    email: '',
+    phoneNumber: ''
+  });
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [prof, bookingsData] = await Promise.all([
+          fetchProfile(),
+          fetchMyBookings()
+        ]);
+        setProfile(prof);
+        setEditData({
+          name: prof.name || '',
+          email: prof.email || '',
+          phoneNumber: prof.phoneNumber || ''
+        });
+        setBookings(bookingsData);
+      } catch (err) {
+        console.error("Failed to load profile data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const updated = await updateProfileApi(editData);
+      setProfile(updated);
+      setCurrentView('main');
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Sort bookings by createdAt DESC to get latest active booking
+  const activeBooking = bookings
+    .sort((a, b) => new Date(b.createdAt || b.startDate).getTime() - new Date(a.createdAt || a.startDate).getTime())
+    .find(b => ['active', 'Active', 'upcoming', 'Upcoming'].includes(b.status));
+
+  const mappedActivePass = activeBooking ? {
+    id: activeBooking._id,
+    gymName: activeBooking.gymId?.name || "Gym",
+    gymLogo: activeBooking.gymId?.images?.[0] || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1000",
+    planName: activeBooking.planId?.name || "Membership",
+    validFrom: new Date(activeBooking.startDate).toLocaleDateString(),
+    validUntil: new Date(activeBooking.endDate).toLocaleDateString(),
+    daysLeft: Math.ceil((new Date(activeBooking.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
+    location: activeBooking.gymId?.location || activeBooking.gymId?.address || "Location",
+    qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`GYMKAANA-${activeBooking._id}`)}&t=${Date.now()}`,
+    houseRules: activeBooking.gymId?.houseRules,
+    facilities: activeBooking.gymId?.facilities
+  } : null;
+
 
   const menuItems = [
     { icon: History, label: "My Bookings", onClick: onViewBookings },
     { icon: CreditCard, label: "Payments", onClick: () => setCurrentView('payments') },
-    { icon: User, label: "Manage Membership", onClick: () => setCurrentView('membership') },
     { icon: Shield, label: "Privacy & Security", onClick: () => setCurrentView('privacy') },
     { icon: Bell, label: "Notifications", onClick: () => setCurrentView('notifications') },
     { icon: HelpCircle, label: "Help & Support", onClick: () => setCurrentView('help') },
@@ -53,7 +133,7 @@ export function ProfileScreen({
         <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Saved Methods</h3>
         <div className="p-4 border border-gray-100 rounded-2xl flex items-center justify-between bg-gray-50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-6 bg-blue-600 rounded flex items-center justify-center text-[8px] text-white font-bold tracking-widest">VISA</div>
+            <div className="w-10 h-6 bg-primary rounded flex items-center justify-center text-[8px] text-white font-bold tracking-widest">VISA</div>
             <div>
               <p className="font-bold text-sm text-gray-900">•••• 4242</p>
               <p className="text-xs text-gray-400">Expires 12/28</p>
@@ -111,14 +191,10 @@ export function ProfileScreen({
 
   const renderNotifications = () => (
     <div className="space-y-6 p-6">
-      <div className="p-4 bg-blue-50 text-blue-800 text-xs font-medium rounded-xl mb-4">
-        Manage how you receive updates and alerts.
-      </div>
       {[
         { label: "Booking Reminders", desc: "Get notified 1 hour before workout" },
         { label: "Promotional Offers", desc: "Deals and discounts from gyms" },
         { label: "App Updates", desc: "New features and improvements" },
-        { label: "Community", desc: "Friend requests and interactions" },
       ].map((item, i) => (
         <div key={i} className="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
           <div>
@@ -134,41 +210,8 @@ export function ProfileScreen({
   );
 
   const renderHelp = () => (
-    <div className="space-y-4 p-6">
-      <button className="w-full p-4 bg-gray-50 rounded-2xl flex items-center gap-4 hover:bg-gray-100 transition-colors text-left">
-        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-          <MessageSquare className="w-5 h-5 text-gray-900" />
-        </div>
-        <div>
-          <p className="font-bold text-sm text-gray-900">Chat with Support</p>
-          <p className="text-xs text-gray-400">Typical reply time: 2 mins</p>
-        </div>
-        <ChevronRight className="w-4 h-4 ml-auto text-gray-300" />
-      </button>
-
-      <button className="w-full p-4 bg-gray-50 rounded-2xl flex items-center gap-4 hover:bg-gray-100 transition-colors text-left">
-        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-          <Mail className="w-5 h-5 text-gray-900" />
-        </div>
-        <div>
-          <p className="font-bold text-sm text-gray-900">Email Us</p>
-          <p className="text-xs text-gray-400">support@gymkaana.com</p>
-        </div>
-        <ChevronRight className="w-4 h-4 ml-auto text-gray-300" />
-      </button>
-
-      <div className="mt-8">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">FAQ</h3>
-        {[
-          "How do I cancel a booking?",
-          "Refund policy",
-          "How to upgrade membership?"
-        ].map((q, i) => (
-          <button key={i} className="w-full py-3 flex justify-between items-center text-sm font-medium text-gray-600 border-b border-gray-100 text-left">
-            {q} <ChevronRight className="w-4 h-4 text-gray-300" />
-          </button>
-        ))}
-      </div>
+    <div className="h-[calc(100vh-180px)]">
+      <SupportChat />
     </div>
   );
 
@@ -177,21 +220,11 @@ export function ProfileScreen({
       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
         <div>
           <p className="font-bold text-sm text-gray-900">Dark Mode</p>
-          <p className="text-xs text-gray-400">Switch app appearance</p>
         </div>
         <div className="w-10 h-6 bg-gray-200 rounded-full p-1">
           <div className="w-4 h-4 bg-white rounded-full" />
         </div>
       </div>
-
-      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-        <div>
-          <p className="font-bold text-sm text-gray-900">Language</p>
-          <p className="text-xs text-gray-400">English (US)</p>
-        </div>
-        <ChevronRight className="w-4 h-4 text-gray-300" />
-      </div>
-
       <button className="w-full p-4 text-left text-red-500 font-bold text-sm flex items-center gap-2 hover:bg-red-50 rounded-2xl transition-colors">
         <AlertCircle className="w-4 h-4" /> Delete Account
       </button>
@@ -200,54 +233,88 @@ export function ProfileScreen({
 
   const renderMembership = () => (
     <div className="space-y-6 p-6">
-      <div className="bg-gray-900 text-white rounded-[32px] p-6 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-[40px] rounded-full" />
-        <div className="relative z-10">
-          <h4 className="text-xl font-black italic uppercase tracking-tighter mb-1">{activePass.gymName}</h4>
-          <p className="text-xs font-bold text-white/50 mb-6">{activePass.planName} Access</p>
+      {mappedActivePass ? (
+        <>
+          <div className="bg-gray-900 text-white rounded-[32px] p-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-[40px] rounded-full" />
+            <div className="relative z-10">
+              <h4 className="text-xl font-black italic uppercase tracking-tighter mb-1">{mappedActivePass.gymName}</h4>
+              <p className="text-xs font-bold text-white/50 mb-6">{mappedActivePass.planName} Access</p>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Status</p>
-              <p className="text-sm font-bold text-emerald-400">Active</p>
-            </div>
-            <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Till</p>
-              <p className="text-sm font-bold">{activePass.validUntil}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Status</p>
+                  <p className="text-sm font-bold text-emerald-400">Active</p>
+                </div>
+                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Till</p>
+                  <p className="text-sm font-bold">{mappedActivePass.validUntil}</p>
+                </div>
+              </div>
             </div>
           </div>
+        </>
+      ) : (
+        <div className="text-center py-12">
+          <p className="text-gray-400 text-sm">No active membership found</p>
         </div>
-      </div>
+      )}
+    </div>
+  );
 
+  const renderEditProfile = () => (
+    <div className="p-6 space-y-6">
       <div className="space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Plan Details</h3>
-        <div className="space-y-3">
-          {[
-            { label: "Price", value: "₹2,500 / month" },
-            { label: "Next Billing", value: activePass.validUntil },
-            { label: "Payment Method", value: "VISA •••• 4242" },
-          ].map((detail, i) => (
-            <div key={i} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <span className="text-sm font-medium text-gray-500">{detail.label}</span>
-              <span className="text-sm font-bold text-gray-900">{detail.value}</span>
-            </div>
-          ))}
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Full Name</label>
+          <input
+            type="text"
+            value={editData.name}
+            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+            className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold uppercase text-sm tracking-tight outline-none focus:ring-2 focus:ring-black/5"
+            placeholder="Enter full name"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Email</label>
+          <input
+            type="email"
+            value={editData.email}
+            onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+            className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-black/5"
+            placeholder="Enter email"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Phone Number</label>
+          <input
+            type="tel"
+            value={editData.phoneNumber}
+            onChange={(e) => setEditData({ ...editData, phoneNumber: e.target.value })}
+            className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm tracking-tight outline-none focus:ring-2 focus:ring-black/5"
+            placeholder="+91 XXXXX XXXXX"
+          />
         </div>
       </div>
-
-      <div className="pt-4 space-y-3">
-        <button className="w-full py-4 bg-black text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg hover:bg-gray-800 transition-all font-sans">
-          Change Plan
+      <div className="pt-6">
+        <button
+          onClick={handleSaveProfile}
+          disabled={saving}
+          className="w-full py-5 bg-black text-white rounded-[24px] font-black uppercase tracking-[0.3em] italic text-xs shadow-xl flex items-center justify-center gap-3 disabled:bg-gray-400"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Update Profile
         </button>
-        <button className="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-red-100 transition-all font-sans">
-          Cancel Membership
+        <button
+          onClick={() => setCurrentView('main')}
+          className="w-full mt-4 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black transition-colors"
+        >
+          Cancel
         </button>
-        <p className="text-[9px] text-center text-gray-400 font-medium px-4 leading-relaxed font-sans">
-          Note: Cancellation will be effective at the end of your current billing cycle on {activePass.validUntil}.
-        </p>
       </div>
     </div>
   );
+
 
   const getHeaderTitle = () => {
     switch (currentView) {
@@ -257,9 +324,18 @@ export function ProfileScreen({
       case 'help': return 'Help & Support';
       case 'settings': return 'Settings';
       case 'membership': return 'Manage Membership';
+      case 'edit': return 'Edit Profile';
       default: return 'Profile';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-white">
+        <Loader2 className="w-8 h-8 animate-spin text-black" />
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -306,20 +382,81 @@ export function ProfileScreen({
               {/* Profile Header */}
               <div className="p-6">
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-20 h-20 bg-black rounded-2xl flex items-center justify-center border-4 border-white shadow-xl">
-                    <User className="w-10 h-10 text-white" />
+                  <div className="relative group/photo">
+                    <div className="w-24 h-24 bg-gray-100 rounded-[32px] flex items-center justify-center border-4 border-white shadow-2xl overflow-hidden">
+                      {profile?.profileImage || userPhoto ? (
+                        <img src={profile?.profileImage || userPhoto!} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-10 h-10 text-gray-300" />
+                      )}
+                    </div>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all border-4 border-white"
+                      title="Take Security Photo"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      title="Capture Security Photo"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = async () => {
+                            const base64 = reader.result as string;
+                            onPhotoCapture(base64);
+                            try {
+                              await updateProfileApi({ profileImage: base64 });
+                              setProfile((prev: any) => ({ ...prev, profileImage: base64 }));
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold mb-1">John Doe</h3>
-                    <p className="text-sm text-gray-400 font-medium">Member since Jan 2025</p>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-2xl font-black italic uppercase tracking-tighter text-gray-900">{profile?.name || 'User'}</h3>
+                      <button
+                        onClick={() => setCurrentView('edit')}
+                        title="Edit Profile"
+                        className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-black transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      {profile?.profileImage || userPhoto ? (
+                        <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider">
+                          <ShieldVerified className="w-3 h-3" />
+                          Verified
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 bg-amber-50 text-amber-600 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider">
+                          <AlertCircle className="w-3 h-3" />
+                          Photo Missing
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Active Pass Section */}
-                <div className="mb-8">
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Active Pass</h3>
-                  <ActivePassCard pass={activePass} onClick={() => setShowQR(true)} />
-                </div>
+                {mappedActivePass && (
+                  <div className="mb-8">
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Active Pass</h3>
+                    <ActivePassCard pass={mappedActivePass} onClick={() => setShowQR(true)} userPhoto={profile?.profileImage || userPhoto} />
+                  </div>
+                )}
+
               </div>
 
               {/* Account Menu */}
@@ -330,6 +467,7 @@ export function ProfileScreen({
                     <button
                       key={index}
                       onClick={item.onClick}
+                      title={item.label}
                       className="w-full flex items-center justify-between p-4 hover:bg-white transition-all border-b border-gray-100 last:border-0 group"
                     >
                       <div className="flex items-center gap-4">
@@ -354,7 +492,7 @@ export function ProfileScreen({
                     </div>
                     <div>
                       <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Email</div>
-                      <div className="text-sm font-bold">john.doe@email.com</div>
+                      <div className="text-sm font-bold">{profile?.email || 'N/A'}</div>
                     </div>
                   </div>
 
@@ -364,16 +502,9 @@ export function ProfileScreen({
                     </div>
                     <div>
                       <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Phone</div>
-                      <div className="text-sm font-bold">+91 98765 43210</div>
+                      <div className="text-sm font-bold">{profile?.phoneNumber || 'Not set'}</div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* App Version */}
-              <div className="p-10 text-center">
-                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-300">
-                  Gymkaana v1.0.0
                 </div>
               </div>
             </motion.div>
@@ -390,12 +521,14 @@ export function ProfileScreen({
               {currentView === 'help' && renderHelp()}
               {currentView === 'settings' && renderSettings()}
               {currentView === 'membership' && renderMembership()}
+              {currentView === 'edit' && renderEditProfile()}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {showQR && <QRModal pass={activePass} onClose={() => setShowQR(false)} />}
+      {showQR && mappedActivePass && <QRModal pass={mappedActivePass} onClose={() => setShowQR(false)} userPhoto={profile?.profileImage || userPhoto} />}
     </motion.div>
+
   );
 }
