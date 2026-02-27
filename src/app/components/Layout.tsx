@@ -14,13 +14,9 @@ export function Layout({ children, activeTab, setActiveTab, setCurrentScreen }: 
             {/* Header */}
             <header className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md border-b border-gray-200 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-3 -skew-x-12">
-                        <h1 className="text-2xl font-[1000] tracking-[-0.08em] uppercase flex items-center">
-                            <span className="text-secondary">GYM</span>
-                            <span className="text-primary italic ml-0.5">KAA</span>
-                            <span className="text-secondary">NA</span>
-                        </h1>
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mt-2 ml-1">Owner</span>
+                    <div className="flex items-center gap-3">
+                        <Building2 className="text-primary w-6 h-6" />
+                        <h1 className="text-xl font-black italic uppercase tracking-tighter">Gymkaana Owner</h1>
                     </div>
                     {/* Nav */}
                     <nav className="hidden md:flex items-center gap-8">
@@ -46,13 +42,6 @@ export function Layout({ children, activeTab, setActiveTab, setCurrentScreen }: 
                             Bookings
                         </button>
                         <button
-                            onClick={() => { setActiveTab('reviews'); setCurrentScreen('main'); }}
-                            className={`text-sm font-medium uppercase tracking-widest transition-colors ${activeTab === 'reviews' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'}`}
-                            title="Reviews"
-                        >
-                            Reviews
-                        </button>
-                        <button
                             onClick={() => { setActiveTab('profile'); setCurrentScreen('main'); }}
                             className={`text-sm font-medium uppercase tracking-widest transition-colors ${activeTab === 'profile' ? 'text-primary' : 'text-gray-500 hover:text-gray-800'}`}
                             title="Profile"
@@ -71,15 +60,6 @@ export function Layout({ children, activeTab, setActiveTab, setCurrentScreen }: 
             <main className="pt-20 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {children}
             </main>
-
-            {/* Footer */}
-            <footer className="py-10 border-t border-gray-200 mt-auto bg-white/50">
-                <div className="max-w-7xl mx-auto px-4 text-center">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">
-                        © {new Date().getFullYear()} VUEGAM SOLUTIONS. ALL RIGHTS RESERVED.
-                    </p>
-                </div>
-            </footer>
         </div>
     );
 }

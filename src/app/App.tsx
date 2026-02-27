@@ -15,47 +15,19 @@ import { QRCheckIn } from "./components/QRCheckIn";
 import { PayoutsEarnings } from "./components/PayoutsEarnings";
 import { Notifications } from "./components/Notifications";
 import { Profile } from "./components/Profile";
-import { Accounting } from "./components/Accounting";
-import { SupportChat } from "./components/SupportChat";
-import { ReviewsList } from "./components/ReviewsList";
-import { PartnerTerms } from "./components/PartnerTerms";
-import { checkSession } from "./lib/api";
-import { useEffect } from "react";
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [currentScreen, setCurrentScreen] = useState("main");
-  const [selectedGymId, setSelectedGymId] = useState<string | number | null>(null);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [selectedGymId, setSelectedGymId] = useState<number | null>(null);
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-
-  // Session restore logic
-  useEffect(() => {
-    const init = async () => {
-      const user = await checkSession();
-      if (user) {
-        if (user.roles?.includes('owner')) {
-          setIsLoggedIn(true);
-        } else {
-          // If logged in as something else (like admin), we don't automatically grant access to owner portal
-          console.warn('Unauthorized role for Owner Portal:', user.roles);
-          setIsLoggedIn(false);
-          // Optional: clear session or just keep showing login 
-        }
-      } else {
-        setIsLoggedIn(false);
-      }
-    };
-    init();
-  }, []);
 
   if (!isLoggedIn) {
     return <OwnerLogin onLogin={() => setIsLoggedIn(true)} />;
   }
 
-  const handleGymSelect = (gymId: string | number) => {
+  const handleGymSelect = (gymId: number) => {
     setSelectedGymId(gymId);
     setCurrentScreen("gymDetails");
   };
@@ -69,7 +41,7 @@ export default function App() {
     if (currentScreen === "gymDetails" && selectedGymId !== null) {
       return (
         <GymDetails
-          gymId={String(selectedGymId)}
+          gymId={selectedGymId}
           onBack={() => setCurrentScreen("main")}
           onEdit={() => setCurrentScreen("editGym")}
           onManagePlans={() => setCurrentScreen("membershipPlans")}
@@ -77,44 +49,30 @@ export default function App() {
       );
     }
 
-    if (currentScreen === "editGym" && selectedGymId !== null) {
-      return (
-        <EditGym
-          gymId={String(selectedGymId)}
-          onBack={() => setCurrentScreen("gymDetails")}
-        />
-      );
+    if (currentScreen === "editGym") {
+      return <EditGym onBack={() => setCurrentScreen("gymDetails")} />;
     }
 
     if (currentScreen === "addGym") {
-      return <AddGym
-        onBack={() => setCurrentScreen("main")}
-        onViewTerms={() => setCurrentScreen("terms")}
-        acceptedTerms={acceptedTerms}
-        setAcceptedTerms={setAcceptedTerms}
-      />;
+      return <AddGym onBack={() => setCurrentScreen("main")} />;
     }
 
-    if (currentScreen === "membershipPlans" && selectedGymId !== null) {
+    if (currentScreen === "membershipPlans") {
       return (
         <MembershipPlans
-          gymId={String(selectedGymId)}
           onBack={() => setCurrentScreen("gymDetails")}
           onAddPlan={() => setCurrentScreen("addPlan")}
-          onEditPlan={(planId: string) => {
-            setSelectedPlanId(planId);
-            setCurrentScreen("editPlan");
-          }}
+          onEditPlan={() => setCurrentScreen("editPlan")}
         />
       );
     }
 
-    if (currentScreen === "editPlan" && selectedPlanId !== null) {
-      return <EditPlan planId={selectedPlanId} onBack={() => setCurrentScreen("membershipPlans")} />;
+    if (currentScreen === "editPlan") {
+      return <EditPlan onBack={() => setCurrentScreen("membershipPlans")} />;
     }
 
     if (currentScreen === "addPlan") {
-      return <AddPlan gymId={selectedGymId ? String(selectedGymId) : undefined} onBack={() => setCurrentScreen("membershipPlans")} />;
+      return <AddPlan onBack={() => setCurrentScreen("main")} />;
     }
 
     if (currentScreen === "bookingDetails" && selectedBookingId !== null) {
@@ -129,26 +87,12 @@ export default function App() {
       return <QRCheckIn onBack={() => setCurrentScreen("main")} />;
     }
 
-    if (currentScreen === "terms") {
-      return <PartnerTerms
-        onBack={() => setCurrentScreen("addGym")}
-        onAccept={() => {
-          setAcceptedTerms(true);
-          setCurrentScreen("addGym");
-        }}
-      />;
-    }
-
     if (currentScreen === "payouts") {
       return <PayoutsEarnings onBack={() => setCurrentScreen("main")} />;
     }
 
     if (currentScreen === "notifications") {
       return <Notifications onBack={() => setCurrentScreen("main")} />;
-    }
-
-    if (currentScreen === "accounting") {
-      return <Accounting onBack={() => setCurrentScreen("main")} />;
     }
 
     switch (activeTab) {
@@ -158,22 +102,14 @@ export default function App() {
             onNavigateToNotifications={() => setCurrentScreen("notifications")}
             onNavigateToPayouts={() => setCurrentScreen("payouts")}
             onNavigateToQR={() => setCurrentScreen("qrCheckIn")}
-            onNavigateToAccounting={() => setCurrentScreen("accounting")}
-            onNavigateToBookings={() => setActiveTab("bookings")}
             onAddGym={() => setCurrentScreen("addGym")}
             onAddPlan={() => setCurrentScreen("addPlan")}
-            onManagePlans={(gymId: string) => {
-              setSelectedGymId(gymId);
-              setCurrentScreen("membershipPlans");
-            }}
           />
         );
       case "gyms":
         return <GymsList onGymSelect={handleGymSelect} onAddGym={() => setCurrentScreen("addGym")} />;
       case "bookings":
         return <BookingsList onBookingSelect={handleBookingSelect} />;
-      case "reviews":
-        return <ReviewsList />;
       case "profile":
         return <Profile onLogout={() => setIsLoggedIn(false)} />;
       default:
@@ -182,14 +118,8 @@ export default function App() {
             onNavigateToNotifications={() => setCurrentScreen("notifications")}
             onNavigateToPayouts={() => setCurrentScreen("payouts")}
             onNavigateToQR={() => setCurrentScreen("qrCheckIn")}
-            onNavigateToAccounting={() => setCurrentScreen("accounting")}
-            onNavigateToBookings={() => setActiveTab("bookings")}
             onAddGym={() => setCurrentScreen("addGym")}
             onAddPlan={() => setCurrentScreen("addPlan")}
-            onManagePlans={(gymId: string) => {
-              setSelectedGymId(gymId);
-              setCurrentScreen("membershipPlans");
-            }}
           />
         );
     }
@@ -201,7 +131,6 @@ export default function App() {
       setActiveTab={setActiveTab}
       setCurrentScreen={setCurrentScreen}>
       {renderScreen()}
-      <SupportChat minimized={true} />
     </Layout>
   );
 }

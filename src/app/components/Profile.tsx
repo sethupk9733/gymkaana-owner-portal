@@ -1,81 +1,34 @@
-import { User, Building2, HelpCircle, Settings, LogOut, ChevronRight, Mail, Phone, MapPin, FileText, Smartphone, ShieldCheck, Loader2 } from "lucide-react";
+import { User, Building2, CreditCard, HelpCircle, Settings, LogOut, ChevronRight, Mail, Phone, MapPin, FileText, Smartphone, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Textarea } from "./ui/textarea";
-import { fetchProfile, updateProfile, fetchDashboardStats, submitTicket } from "../lib/api";
 
 interface ProfileProps {
   onLogout: () => void;
 }
 
 export function Profile({ onLogout }: ProfileProps) {
-  const [currentView, setCurrentView] = useState("main");
-  const [profile, setProfile] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  // Edit state
-  const [editData, setEditData] = useState({
-    name: '',
-    email: '',
-    phoneNumber: ''
-  });
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [profileData, statsData] = await Promise.all([
-          fetchProfile(),
-          fetchDashboardStats()
-        ]);
-        setProfile(profileData);
-        setStats(statsData);
-        setEditData({
-          name: profileData.name || '',
-          email: profileData.email || '',
-          phoneNumber: profileData.phoneNumber || ''
-        });
-      } catch (err) {
-        console.error("Failed to load profile:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-
-  const handleSaveProfile = async () => {
-    setSaving(true);
-    try {
-      const updated = await updateProfile(editData);
-      setProfile(updated);
-      setCurrentView("main");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update profile");
-    } finally {
-      setSaving(false);
-    }
-  };
+  const [currentView, setCurrentView] = useState("main"); // main, edit, banking, business, help, settings
 
   const menuSections = [
     {
       title: "Business",
       items: [
         { icon: Building2, label: "Business Profile", view: "business" },
+        { icon: CreditCard, label: "Bank & Payout Details", view: "banking" },
       ],
     },
     {
       title: "Support",
       items: [
         { icon: HelpCircle, label: "Help Center", view: "help" },
-        { icon: Mail, label: "Contact Us", view: "contact" },
         { icon: Settings, label: "Settings", view: "settings" },
       ],
     },
   ];
+
+  /* --- Sub-Views Renders --- */
 
   const renderEditProfile = () => (
     <div className="space-y-6">
@@ -83,36 +36,65 @@ export function Profile({ onLogout }: ProfileProps) {
       <div className="space-y-4">
         <div>
           <label className="block text-sm mb-2 text-gray-700 font-medium">Full Name</label>
-          <Input
-            value={editData.name}
-            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-            className="h-11"
-          />
+          <Input defaultValue="Rahul Sharma" className="h-11" />
         </div>
         <div>
           <label className="block text-sm mb-2 text-gray-700 font-medium">Email Address</label>
-          <Input
-            value={editData.email}
-            onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-            className="h-11"
-          />
+          <Input defaultValue="owner@gymkaana.com" className="h-11" />
         </div>
         <div>
           <label className="block text-sm mb-2 text-gray-700 font-medium">Phone Number</label>
-          <Input
-            value={editData.phoneNumber}
-            onChange={(e) => setEditData({ ...editData, phoneNumber: e.target.value })}
-            className="h-11"
-          />
+          <Input defaultValue="+91 98765 43210" className="h-11" />
         </div>
       </div>
-      <Button
-        onClick={handleSaveProfile}
-        disabled={saving}
-        className="w-full h-12 bg-gray-900 text-white"
-      >
-        {saving ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving...</> : 'Save Changes'}
-      </Button>
+      <Button onClick={() => setCurrentView("main")} className="w-full h-12 bg-gray-900 text-white">Save Changes</Button>
+    </div>
+  );
+
+  const renderBanking = () => (
+    <div className="space-y-6">
+      <h2 className="text-xl font-bold">Bank & Payout Details</h2>
+
+      {/* Bank Account */}
+      <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
+        <h3 className="text-base font-bold mb-3 flex items-center gap-2">
+          <Building2 size={18} /> Bank Account
+        </h3>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs mb-1 text-gray-500 font-medium uppercase">Account Number</label>
+            <Input defaultValue="XXXXXXXXXX1234" className="bg-gray-50 mb-2" />
+          </div>
+          <div>
+            <label className="block text-xs mb-1 text-gray-500 font-medium uppercase">IFSC Code</label>
+            <Input defaultValue="HDFC0001234" className="bg-gray-50" />
+          </div>
+        </div>
+      </div>
+
+      {/* GST Info */}
+      <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
+        <h3 className="text-base font-bold mb-3 flex items-center gap-2">
+          <FileText size={18} /> GST Information
+        </h3>
+        <div>
+          <label className="block text-xs mb-1 text-gray-500 font-medium uppercase">GST Number</label>
+          <Input defaultValue="29ABCDE1234F1Z5" className="bg-gray-50" />
+        </div>
+      </div>
+
+      {/* Payout Details */}
+      <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
+        <h3 className="text-base font-bold mb-3 flex items-center gap-2">
+          <CreditCard size={18} /> Payout Schedule
+        </h3>
+        <div className="text-sm text-gray-600">
+          <p>Payouts are processed weekly on <span className="font-bold text-gray-900">Mondays</span>.</p>
+          <p className="mt-1">Next payout: <span className="font-bold text-green-600">Jan 08, 2026</span></p>
+        </div>
+      </div>
+
+      <Button onClick={() => setCurrentView("main")} className="w-full h-12 bg-gray-900 text-white">Save Banking Details</Button>
     </div>
   );
 
@@ -122,11 +104,11 @@ export function Profile({ onLogout }: ProfileProps) {
       <div className="space-y-4">
         <div>
           <label className="block text-sm mb-2 text-gray-700 font-medium">Business Name</label>
-          <Input defaultValue={profile?.name || "Business Name"} className="h-11" />
+          <Input defaultValue="FitZone Enterprise" className="h-11" />
         </div>
         <div>
           <label className="block text-sm mb-2 text-gray-700 font-medium">Business Address</label>
-          <Textarea defaultValue="Office Address" className="h-24" />
+          <Textarea defaultValue="Office 201, Tech Park, Bangalore" className="h-24" />
         </div>
         <div>
           <label className="block text-sm mb-2 text-gray-700 font-medium">Owner PAN</label>
@@ -140,140 +122,19 @@ export function Profile({ onLogout }: ProfileProps) {
   const renderHelp = () => (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">Help Center</h2>
-      
-      {/* FAQs Section */}
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-3">Frequently Asked Questions</h3>
-        <div className="space-y-2">
-          <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
-            <p className="font-medium text-gray-900">How do I add a new gym?</p>
-            <p className="text-sm text-gray-600">Go to the Gyms tab and click on the 'Add Gym' button. Fill in the details and submit.</p>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
-            <p className="font-medium text-gray-900">When do I get my payouts?</p>
-            <p className="text-sm text-gray-600">Payouts are processed weekly every Wednesday for the previous week's earnings.</p>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
-            <p className="font-medium text-gray-900">How does the QR check-in work?</p>
-            <p className="text-sm text-gray-600">Customers will show their QR code. You can scan it using the 'Check-in' feature on your dashboard or manually enter their ID.</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Raise a Ticket Button */}
-      <button 
-        onClick={() => setCurrentView("ticket")}
-        className="w-full flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
-      >
-        <span className="font-medium">Raise a Ticket</span>
-        <ChevronRight size={18} className="text-gray-400" />
-      </button>
-
-      <Button onClick={() => setCurrentView("main")} variant="outline" className="w-full h-12 border-gray-300">Back</Button>
-    </div>
-  );
-
-  const [ticketData, setTicketData] = useState({
-    subject: '',
-    description: ''
-  });
-  const [submittingTicket, setSubmittingTicket] = useState(false);
-
-  const handleSubmitTicket = async () => {
-    if (!ticketData.subject.trim() || !ticketData.description.trim()) {
-      alert('Please fill in both subject and description');
-      return;
-    }
-
-    setSubmittingTicket(true);
-    try {
-      await submitTicket(ticketData);
-      alert('Ticket submitted successfully! Our team will review it soon.');
-      setTicketData({ subject: '', description: '' });
-      setCurrentView("help");
-    } catch (err) {
-      alert('Failed to submit ticket: ' + (err as Error).message);
-    } finally {
-      setSubmittingTicket(false);
-    }
-  };
-
-  const renderTicket = () => (
-    <div className="space-y-6">
-      <h2 className="text-xl font-bold">Raise a Support Ticket</h2>
-      <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
-          <Input 
-            placeholder="What's the issue?" 
-            className="h-11" 
-            value={ticketData.subject}
-            onChange={(e) => setTicketData({ ...ticketData, subject: e.target.value })}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <Textarea 
-            placeholder="Describe your problem in detail..." 
-            rows={4} 
-            className="resize-none"
-            value={ticketData.description}
-            onChange={(e) => setTicketData({ ...ticketData, description: e.target.value })}
-          />
-        </div>
-        <Button 
-          onClick={handleSubmitTicket}
-          disabled={submittingTicket}
-          className="w-full h-11 bg-black text-white hover:bg-gray-800"
-        >
-          {submittingTicket ? <>
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            Submitting...
-          </> : 'Submit Ticket'}
-        </Button>
-      </div>
-      <Button onClick={() => setCurrentView("help")} variant="outline" className="w-full h-12 border-gray-300">Back to Help</Button>
-    </div>
-  );
-
-  const renderContact = () => (
-    <div className="space-y-6">
-      <h2 className="text-xl font-bold">Contact Us</h2>
-      <div className="space-y-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-          <h3 className="font-bold text-gray-900 flex items-center gap-2">
-            <Mail size={20} className="text-blue-600" />
-            Email Support
-          </h3>
-          <a href="mailto:support@gymkaana.com" className="text-blue-600 hover:underline font-medium">
-            support@gymkaana.com
-          </a>
-          <p className="text-sm text-gray-500">We typically respond within 24 hours</p>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-          <h3 className="font-bold text-gray-900 flex items-center gap-2">
-            <Phone size={20} className="text-green-600" />
-            Phone Support
-          </h3>
-          <a href="tel:+918000900900" className="text-blue-600 hover:underline font-medium text-lg">
-            +91 8000 900 900
-          </a>
-          <p className="text-sm text-gray-500">Monday to Friday, 9 AM - 6 PM IST</p>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-          <h3 className="font-bold text-gray-900 flex items-center gap-2">
-            <MapPin size={20} className="text-red-600" />
-            Office Address
-          </h3>
-          <p className="text-gray-700">
-            Gymkaana Support Center<br />
-            123 Fitness Street<br />
-            Mumbai, Maharashtra 400001<br />
-            India
-          </p>
-        </div>
+      <div className="space-y-3">
+        <button className="w-full flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-sm">
+          <span className="font-medium">Contact Support</span>
+          <ChevronRight size={18} className="text-gray-400" />
+        </button>
+        <button className="w-full flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-sm">
+          <span className="font-medium">FAQs</span>
+          <ChevronRight size={18} className="text-gray-400" />
+        </button>
+        <button className="w-full flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-sm">
+          <span className="font-medium">Privacy Policy</span>
+          <ChevronRight size={18} className="text-gray-400" />
+        </button>
       </div>
       <Button onClick={() => setCurrentView("main")} variant="outline" className="w-full h-12 border-gray-300">Back</Button>
     </div>
@@ -309,38 +170,12 @@ export function Profile({ onLogout }: ProfileProps) {
           </div>
         </div>
       </div>
-
-      {/* Legal Section */}
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-3">Legal</h3>
-        <div className="space-y-2">
-          <a href="#" className="w-full flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-sm text-left">
-            <span className="font-medium text-gray-900">Privacy Policy</span>
-            <ChevronRight size={18} className="text-gray-400" />
-          </a>
-          <a href="#" className="w-full flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-sm text-left">
-            <span className="font-medium text-gray-900">Terms & Conditions</span>
-            <ChevronRight size={18} className="text-gray-400" />
-          </a>
-        </div>
-      </div>
-
       <Button onClick={() => setCurrentView("main")} variant="outline" className="w-full h-12 border-gray-300">Back</Button>
     </div>
   );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-900" />
-      </div>
-    );
-  }
-
   /* --- Main View --- */
   if (currentView === "main") {
-    const initials = profile?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'OW';
-
     return (
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
@@ -355,11 +190,11 @@ export function Profile({ onLogout }: ProfileProps) {
           <div className="bg-white border-2 border-gray-300 rounded-lg p-4">
             <div className="flex items-start gap-4 mb-4">
               <div className="w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-xl">
-                {initials}
+                RS
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-bold">{profile?.name || 'Owner Name'}</h2>
-                <p className="text-sm text-gray-600 mb-3">{profile?.role === 'owner' ? 'Premium Account' : 'Account'}</p>
+                <h2 className="text-lg font-bold">Rahul Sharma</h2>
+                <p className="text-sm text-gray-600 mb-3">Premium Account</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -374,15 +209,15 @@ export function Profile({ onLogout }: ProfileProps) {
             <div className="pt-4 border-t-2 border-gray-200 space-y-2">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Mail size={14} />
-                <span>{profile?.email || 'No email'}</span>
+                <span>owner@gymkaana.com</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Phone size={14} />
-                <span>{profile?.phoneNumber || 'No phone'}</span>
+                <span>+91 98765 43210</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <MapPin size={14} />
-                <span>India</span>
+                <span>Delhi NCR, India</span>
               </div>
             </div>
           </div>
@@ -392,16 +227,16 @@ export function Profile({ onLogout }: ProfileProps) {
             <h3 className="text-base font-bold mb-4">Your Statistics</h3>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <p className="text-xl font-bold mb-1">{stats?.gymPerformance?.length || 0}</p>
+                <p className="text-xl font-bold mb-1">3</p>
                 <p className="text-xs text-gray-500">Total Gyms</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold mb-1">{stats?.totalMembers || 0}</p>
+                <p className="text-xl font-bold mb-1">448</p>
                 <p className="text-xs text-gray-500">Total Members</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-green-600 mb-1">₹{((stats?.totalRevenue || 0) / 1000).toFixed(1)}K</p>
-                <p className="text-xs text-gray-500">Total Revenue</p>
+                <p className="text-xl font-bold text-green-600 mb-1">₹1.2L</p>
+                <p className="text-xs text-gray-500">This Month</p>
               </div>
             </div>
           </div>
@@ -444,7 +279,7 @@ export function Profile({ onLogout }: ProfileProps) {
 
           {/* App Version */}
           <div className="text-center pt-4 pb-8">
-            <p className="text-xs text-gray-400">Gymkaana Owner v1.0.4</p>
+            <p className="text-xs text-gray-400">Gymkaana Owner v1.0.0</p>
           </div>
         </div>
       </div>
@@ -466,10 +301,9 @@ export function Profile({ onLogout }: ProfileProps) {
 
       <div className="px-6 py-6 pb-24 max-w-2xl mx-auto">
         {currentView === "edit" && renderEditProfile()}
+        {currentView === "banking" && renderBanking()}
         {currentView === "business" && renderBusiness()}
         {currentView === "help" && renderHelp()}
-        {currentView === "ticket" && renderTicket()}
-        {currentView === "contact" && renderContact()}
         {currentView === "settings" && renderSettings()}
       </div>
     </div>

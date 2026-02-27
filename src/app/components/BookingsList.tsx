@@ -1,37 +1,84 @@
 import { Clock, CheckCircle, XCircle, Calendar, MapPin, Search } from "lucide-react";
+import { useState } from "react";
 import { Input } from "./ui/input";
-import { fetchBookings } from "../lib/api";
-import { useEffect, useState } from "react";
 
 interface BookingsListProps {
-  onBookingSelect: (bookingId: any) => void;
+  onBookingSelect: (bookingId: number) => void;
 }
 
 export function BookingsList({ onBookingSelect }: BookingsListProps) {
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("upcoming");
   const [searchQuery, setSearchQuery] = useState("");
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchBookings().then(data => {
-      setBookings(data);
-      setLoading(false);
-    });
-  }, []);
+  const bookings = [
+    {
+      id: 1,
+      user: "Rahul Sharma",
+      gym: "Main Branch",
+      location: "Koramangala",
+      date: "Dec 05, 2023",
+      time: "07:00 AM",
+      status: "Upcoming",
+      plan: "Gold Membership",
+    },
+    {
+      id: 2,
+      user: "Priya Singh",
+      gym: "Downtown Gym",
+      location: "Indiranagar",
+      date: "Dec 06, 2023",
+      time: "06:00 PM",
+      status: "Upcoming",
+      plan: "Silver Membership",
+    },
+    {
+      id: 3,
+      user: "Amit Kumar",
+      gym: "Main Branch",
+      location: "Koramangala",
+      date: "Dec 03, 2023",
+      time: "08:00 AM",
+      status: "Active",
+      plan: "Platinum Membership",
+    },
+    {
+      id: 4,
+      user: "Neha Patel",
+      gym: "Downtown Gym",
+      location: "Indiranagar",
+      date: "Nov 28, 2023",
+      time: "07:30 AM",
+      status: "Cancelled",
+      plan: "Gold Membership",
+    },
+    {
+      id: 5,
+      user: "Suresh Raina",
+      gym: "Main Branch",
+      location: "Koramangala",
+      date: "Nov 20, 2023",
+      time: "06:00 AM",
+      status: "Completed",
+      plan: "Daily Pass",
+    },
+  ];
 
   const filteredBookings = bookings.filter((booking) => {
     // 1. Text Search Filter
     const matchesSearch =
-      (booking.memberName || booking.user || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (booking.gymId?.name || booking.gym || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (booking._id || "").toString().includes(searchQuery);
+      booking.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.gym.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.id.toString().includes(searchQuery);
 
     if (!matchesSearch) return false;
 
     // 2. Status Tab Filter
-    if (activeFilter === "all") return true;
-    return (booking.status || "").toLowerCase() === activeFilter.toLowerCase();
+    if (activeFilter === "upcoming") return booking.status === "Upcoming";
+    if (activeFilter === "active") return booking.status === "Active";
+    if (activeFilter === "completed") return booking.status === "Completed";
+    if (activeFilter === "cancelled") return booking.status === "Cancelled";
+
+    return true;
   });
 
   const getStatusColor = (status: string) => {
@@ -76,13 +123,13 @@ export function BookingsList({ onBookingSelect }: BookingsListProps) {
       {/* Filters */}
       <div className="bg-white border-b border-gray-200 px-6 py-3">
         <div className="max-w-4xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
-          {['all', 'active', 'completed', 'cancelled'].map((filter) => (
+          {['upcoming', 'active', 'completed', 'cancelled'].map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors capitalize ${activeFilter === filter
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
             >
               {filter}
@@ -101,27 +148,23 @@ export function BookingsList({ onBookingSelect }: BookingsListProps) {
           <div className="space-y-3">
             {filteredBookings.map((booking) => (
               <div
-                key={booking._id || booking.id}
-                onClick={() => onBookingSelect(booking._id || booking.id)}
+                key={booking.id}
+                onClick={() => onBookingSelect(booking.id)}
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-all cursor-pointer group"
               >
                 {/* User Info */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-start gap-3">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-lg shadow-sm">
-                      {(booking.memberName || booking.user || "U").charAt(0)}
+                      {booking.user.charAt(0)}
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {booking.memberName || booking.user || "Unknown User"}
-                      </h3>
-                      <p className="text-sm text-gray-500 font-medium">
-                        {booking.planId?.name || booking.plan || "N/A"}
-                      </p>
+                      <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{booking.user}</h3>
+                      <p className="text-sm text-gray-500 font-medium">{booking.plan || "N/A"}</p>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(booking.status || "active").replace('bg-', 'border-').replace('text-', 'text-')} bg-opacity-10`}>
-                    {(booking.status || "active").toUpperCase()}
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(booking.status).replace('bg-', 'border-').replace('text-', 'text-')} bg-opacity-10`}>
+                    {booking.status.toUpperCase()}
                   </span>
                 </div>
 
@@ -129,15 +172,15 @@ export function BookingsList({ onBookingSelect }: BookingsListProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-4 pt-3 border-t border-gray-50 mt-2">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="font-medium truncate">{booking.gymId?.name || booking.gym}</span>
+                    <span className="font-medium truncate">{booking.gym}</span>
                     <span className="text-gray-300 hidden md:inline">•</span>
-                    <span className="truncate text-gray-500 hidden md:inline">{booking.gymId?.location || booking.location}</span>
+                    <span className="truncate text-gray-500 hidden md:inline">{booking.location}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-600 md:justify-end">
                     <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="font-medium">
-                      {booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString() : booking.date}
-                    </span>
+                    <span className="font-medium">{booking.date}</span>
+                    <span className="text-gray-300">•</span>
+                    <span className="font-medium">{booking.time}</span>
                   </div>
                 </div>
               </div>
